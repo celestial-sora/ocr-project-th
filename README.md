@@ -141,4 +141,4 @@ torch
 
 ## 👤 Author
 
-**Duck-Honey** — [@Duck-Honey](https://github.com/Duck-Honey)
+**Sorachan** — [@celestial-sora](https://github.com/celestial-sora)
