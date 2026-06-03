@@ -65,7 +65,7 @@ ocr-project-th/
 
 ```bash
 # 1. Clone repo
-git clone https://github.com/Duck-Honey/ocr-project-th.git
+git clone https://github.com/celestial-sora/ocr-project-th.git
 cd ocr-project-th
 
 # 2. สร้าง virtual environment
