@@ -12,8 +12,8 @@ Servo gateServo;
 void showText(const String& a, const String& b="") {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_ncenB08_tr);
-  u8g2.drawStr(0, 16, a.c_str());
-  u8g2.drawStr(0, 36, b.c_str());
+  u8g2.drawUTF8(0, 16, a.c_str());
+  u8g2.drawUTF8(0, 36, b.c_str());
   u8g2.sendBuffer();
 }
 
@@ -38,12 +38,20 @@ void loop() {
     }
     else if (cmd == "CLOSE" || cmd == "0") {
       gateServo.write(0);
-      showText("GATE: CLOSE", "Angle: 0");
+      showText("GATE: CLOSED", "Angle: 0");
+    }
+    else if (cmd.startsWith("OPEN:")) {
+      String plate = cmd.substring(5);
+      gateServo.write(90);
+      showText("ACCESS ALLOWED", plate);
+    }
+    else if (cmd.startsWith("DENIED:")) {
+      String plate = cmd.substring(7);
+      gateServo.write(0);
+      showText("ACCESS DENIED", plate);
     }
     else if (cmd.length() > 0) {
       int val = cmd.toInt();
-      // toInt() returns 0 if it's not a number, but we already handled "0" above.
-      // So if it's > 0, it's a valid numeric angle.
       if (val > 0 && val <= 180) {
         gateServo.write(val);
         showText("SERVO GOTO", String(val));

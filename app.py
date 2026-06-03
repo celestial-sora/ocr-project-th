@@ -10,10 +10,13 @@ import re
 
 import line_notify
 import plate_whitelist
+import database
 
 BASE_DIR = Path(__file__).resolve().parent
 MAIN_PY = BASE_DIR / "main.py"
 API_KEYS_FILE = BASE_DIR / "app_secrets.py"
+
+database.init_db()
 
 app = Flask(__name__)
 main_process: subprocess.Popen[str] | None = None
@@ -92,6 +95,19 @@ def delete_whitelist():
         return jsonify({"ok": False, "message": "plate is required"}), 400
     items = sorted(plate_whitelist.remove_plate(plate))
     return jsonify({"ok": True, "items": items})
+
+
+@app.get("/api/logs")
+def get_logs():
+    limit = request.args.get("limit", default=50, type=int)
+    logs = database.get_logs(limit)
+    return jsonify({"logs": logs})
+
+
+@app.post("/api/logs/clear")
+def clear_logs():
+    database.clear_logs()
+    return jsonify({"ok": True, "message": "Cleared all logs"})
 
 
 @app.post("/api/test-line")

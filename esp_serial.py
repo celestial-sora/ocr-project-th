@@ -65,6 +65,40 @@ def send_servo_angle(ser: serial.Serial | None, angle: int) -> bool:
         return False
 
 
+def send_plate_status(ser: serial.Serial | None, plate: str, allowed: bool) -> bool:
+    """
+    ส่งเลขป้ายทะเบียนและสถานะการอนุญาตไปที่ ESP8266
+    Protocol: ส่ง "OPEN:<plate>\n" หรือ "DENIED:<plate>\n"
+    """
+    if ser is None or not ser.is_open:
+        return False
+    prefix = "OPEN" if allowed else "DENIED"
+    cmd = f"{prefix}:{plate}\n"
+    try:
+        ser.write(cmd.encode("utf-8", errors="ignore"))
+        ser.flush()
+        return True
+    except Exception as e:  # noqa: BLE001
+        print(f"Serial: ส่งสถานะป้ายไม่ได้: {e}")
+        return False
+
+
+def send_close(ser: serial.Serial | None) -> bool:
+    """
+    ส่งคำสั่งปิดไม้กั้นไปที่ ESP8266
+    Protocol: ส่ง "CLOSE\n"
+    """
+    if ser is None or not ser.is_open:
+        return False
+    try:
+        ser.write(b"CLOSE\n")
+        ser.flush()
+        return True
+    except Exception as e:  # noqa: BLE001
+        print(f"Serial: ส่งคำสั่งปิดไม้กั้นไม่ได้: {e}")
+        return False
+
+
 def close(ser: serial.Serial | None) -> None:
     if ser is not None and ser.is_open:
         try:

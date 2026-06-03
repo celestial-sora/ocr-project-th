@@ -3,3 +3,5 @@ api_keys
 .venv/
 __pycache__/
 *.pyc
+*.db
+*.bak

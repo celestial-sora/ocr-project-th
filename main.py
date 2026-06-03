@@ -18,22 +18,17 @@ import esp_serial
 import line_notify
 import plate_utils
 import plate_whitelist
+import database
 
-# ไฟล์ log และ cooldown (วินาที) สำหรับป้ายซ้ำ
-LOG_PATH = Path(__file__).resolve().parent / "plates_log.txt"
+database.init_db()
+
+# Cooldown (วินาที) สำหรับป้ายซ้ำ
 LOG_COOLDOWN_SEC = 5.0
-MAX_UNIQUE_LOG_ENTRIES = 10
 SCREENSHOT_DIR = Path(__file__).resolve().parent / "screenshots"
 
 # มุมเซอร์โวส่งไป ESP เมื่ออ่านป้ายสำเร็จ (และตั้ง ESP_PORT แล้ว)
 SERVO_OPEN_DEG = int(os.environ.get("ESP_SERVO_OPEN", "90"))
 SERVO_CLOSE_DEG = int(os.environ.get("ESP_SERVO_CLOSE", "0"))
-
-
-def _write_plates_log(history: deque[tuple[str, str]]) -> None:
-    """เขียน plates_log.txt จากประวัติ unique ล่าสุด (timestamp, plate)"""
-    lines = [f"{ts}\t{plate}" for ts, plate in history]
-    LOG_PATH.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
 
 
 def main() -> None:
@@ -45,8 +40,7 @@ def main() -> None:
         print("ไม่สามารถเปิดกล้อง index 0 ได้ — ตรวจสอบ USB webcam")
         return
 
-    # ประวัติ unique ล่าสุดสำหรับไฟล์ log: (timestamp_str, plate_text)
-    plate_history: deque[tuple[str, str]] = deque(maxlen=MAX_UNIQUE_LOG_ENTRIES)
+    # ประวัติการตรวจจับป้ายทะเบียน
     last_log_time: dict[str, float] = {}
 
     prev_time = time.perf_counter()
@@ -111,23 +105,22 @@ def main() -> None:
                 ):
                     last_log_time[plate_text_display] = ts_wall
                     ts_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    # คง unique: เอาป้ายเดิมออกแล้ว append ใหม่ = ล่าสุด
-                    new_hist = deque(
-                        [(t, p) for t, p in plate_history if p != plate_text_display],
-                        maxlen=MAX_UNIQUE_LOG_ENTRIES,
-                    )
-                    new_hist.append((ts_str, plate_text_display))
-                    plate_history = new_hist
-                    _write_plates_log(plate_history)
-                    # แจ้ง ESP8266 หมุนเซอร์โว (เช่น เปิดไม้กั้น) — ถ้าไม่มี serial จะข้ามเงียบ ๆ
-                    esp_serial.send_servo_angle(ser, SERVO_OPEN_DEG)
-                    # LINE Push — เงื่อนไขป้ายจาก plate_whitelist (คนละไฟล์กับ line_notify)
-                    if line_notify.messaging_push_ready():
-                        wl = plate_whitelist.load_whitelist()
-                        if plate_whitelist.should_allow_plate(plate_text_display, wl):
-                            msg = f"ป้ายเข้า: {plate_text_display}\n{ts_str}"
-                            if not line_notify.send_push_text(msg):
-                                print("LINE Push ส่งไม่สำเร็จ (ตรวจ token, LINE_PUSH_TO, เครือข่าย)")
+
+                    # ตรวจสอบ whitelist
+                    wl = plate_whitelist.load_whitelist()
+                    allowed = plate_whitelist.should_allow_plate(plate_text_display, wl)
+
+                    # บันทึกฐานข้อมูล SQLite
+                    database.add_log(plate_text_display, 1 if allowed else 0, float(_conf))
+
+                    # แจ้ง ESP8266 ด้วยเลขป้ายทะเบียนและสถานะ (เปิด/ปฏิเสธ)
+                    esp_serial.send_plate_status(ser, plate_text_display, allowed)
+
+                    # ส่ง LINE Notification (เฉพาะป้ายที่ได้รับอนุญาต)
+                    if line_notify.messaging_push_ready() and allowed:
+                        msg = f"ป้ายเข้า: {plate_text_display}\n{ts_str}"
+                        if not line_notify.send_push_text(msg):
+                            print("LINE Push ส่งไม่สำเร็จ (ตรวจ token, LINE_PUSH_TO, เครือข่าย)")
         # ถ้าไม่มี roi — ไม่ทำอะไร (ไม่ crash)
 
         # FPS มุมซ้ายบน
@@ -152,11 +145,11 @@ def main() -> None:
             cv2.imwrite(str(fname), display)
             print(f"บันทึกภาพ: {fname}")
         if key == ord("o"):
-            esp_serial.send_servo_angle(ser, SERVO_OPEN_DEG)
+            esp_serial.send_plate_status(ser, "MANUAL OPEN", True)
         if key == ord("c"):
-            esp_serial.send_servo_angle(ser, SERVO_CLOSE_DEG)
+            esp_serial.send_close(ser)
 
-    esp_serial.send_servo_angle(ser, SERVO_CLOSE_DEG)
+    esp_serial.send_close(ser)
     esp_serial.close(ser)
     cap.release()
     cv2.destroyAllWindows()

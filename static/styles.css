@@ -207,3 +207,36 @@ input::placeholder { color: var(--muted); opacity: .7; }
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* ── Log Table ── */
+.log-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+.log-table th, .log-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.log-table tr:last-child td {
+  border-bottom: none;
+}
+.log-table th {
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: .05em;
+  text-align: left;
+}
+.log-table td {
+  font-size: 0.93rem;
+}
+.status-allowed {
+  color: var(--success);
+  font-weight: 600;
+}
+.status-denied {
+  color: var(--danger);
+  font-weight: 600;
+}

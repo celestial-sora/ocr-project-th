@@ -70,6 +70,67 @@ function renderList(items) {
   }
 }
 
+function renderLogs(logs) {
+  const tbody = document.getElementById("logsList");
+  tbody.innerHTML = "";
+  if (!logs.length) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 4;
+    td.textContent = "ยังไม่มีประวัติการตรวจจับป้ายทะเบียน";
+    td.style.color = "var(--muted)";
+    td.style.textAlign = "center";
+    td.style.padding = "20px";
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+    return;
+  }
+  for (const log of logs) {
+    const tr = document.createElement("tr");
+    
+    // Plate
+    const tdPlate = document.createElement("td");
+    tdPlate.textContent = log.plate_number;
+    tdPlate.style.fontWeight = "500";
+    
+    // Time
+    const tdTime = document.createElement("td");
+    tdTime.textContent = log.timestamp;
+    tdTime.style.color = "var(--muted)";
+    
+    // Status
+    const tdStatus = document.createElement("td");
+    if (log.is_allowed) {
+      tdStatus.textContent = "ALLOWED";
+      tdStatus.className = "status-allowed";
+    } else {
+      tdStatus.textContent = "DENIED";
+      tdStatus.className = "status-denied";
+    }
+    
+    // Confidence
+    const tdConf = document.createElement("td");
+    tdConf.textContent = (log.confidence * 100).toFixed(1) + "%";
+    tdConf.style.textAlign = "right";
+    tdConf.style.color = "var(--muted)";
+    
+    tr.appendChild(tdPlate);
+    tr.appendChild(tdTime);
+    tr.appendChild(tdStatus);
+    tr.appendChild(tdConf);
+    tbody.appendChild(tr);
+  }
+}
+
+async function loadLogs() {
+  try {
+    const data = await api("/api/logs");
+    renderLogs(data.logs);
+  } catch (err) {
+    console.error("Failed to load logs:", err);
+  }
+}
+
 /* ── LINE credentials helpers ── */
 function showLineMsg(text, isOk) {
   const p = document.getElementById("lineMsg");
@@ -102,20 +163,26 @@ async function loadLineKeys() {
 
 /* ── Refresh all on load ── */
 async function refreshAll() {
-  const [status, wl] = await Promise.all([
+  const [status, wl, logsData] = await Promise.all([
     api("/api/status"),
     api("/api/whitelist"),
+    api("/api/logs"),
   ]);
   setStatus(status.running);
   renderList(wl.items);
+  renderLogs(logsData.logs);
   await loadLineKeys();
 }
 
-/* ── Fix #9: Auto-refresh status every 5 seconds ── */
+/* ── Fix #9: Auto-refresh status and logs every 5 seconds ── */
 setInterval(async () => {
   try {
-    const data = await api("/api/status");
-    setStatus(data.running);
+    const [status, logsData] = await Promise.all([
+      api("/api/status"),
+      api("/api/logs"),
+    ]);
+    setStatus(status.running);
+    renderLogs(logsData.logs);
   } catch (_) { /* silent — network might be down momentarily */ }
 }, 5000);
 
@@ -196,6 +263,17 @@ document.getElementById("addBtn").onclick = async () => {
 document.getElementById("plateInput").addEventListener("keydown", (e) => {
   if (e.key === "Enter") document.getElementById("addBtn").click();
 });
+
+document.getElementById("clearLogsBtn").onclick = async () => {
+  if (!confirm("คุณต้องการลบประวัติการตรวจจับทั้งหมดใช่หรือไม่?")) return;
+  const btn = document.getElementById("clearLogsBtn");
+  setBtnLoading(btn, true);
+  try {
+    await api("/api/logs/clear", { method: "POST" });
+    renderLogs([]);
+  } catch (err) { alert(err.message); }
+  setBtnLoading(btn, false);
+};
 
 refreshAll().catch((err) => {
   document.getElementById("statusBadge").textContent = "Error: " + err.message;

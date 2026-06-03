@@ -1,11 +1,9 @@
-"""Simple whitelist storage and matching for license plates."""
+"""Simple whitelist storage and matching for license plates using SQLite."""
 
 from __future__ import annotations
 
 import os
-from pathlib import Path
-
-WHITELIST_PATH = Path(__file__).resolve().parent / "whitelist_plates.txt"
+import database
 
 
 def _normalize(plate: str) -> str:
@@ -13,29 +11,17 @@ def _normalize(plate: str) -> str:
 
 
 def load_whitelist() -> set[str]:
-    if not WHITELIST_PATH.exists():
-        return set()
-    lines = WHITELIST_PATH.read_text(encoding="utf-8").splitlines()
-    return {_normalize(line) for line in lines if line.strip()}
-
-
-def save_whitelist(plates: set[str]) -> None:
-    items = sorted({_normalize(p) for p in plates if p.strip()})
-    WHITELIST_PATH.write_text("\n".join(items) + ("\n" if items else ""), encoding="utf-8")
+    return database.load_whitelist()
 
 
 def add_plate(plate: str) -> set[str]:
-    wl = load_whitelist()
-    wl.add(_normalize(plate))
-    save_whitelist(wl)
-    return wl
+    database.add_plate(_normalize(plate))
+    return load_whitelist()
 
 
 def remove_plate(plate: str) -> set[str]:
-    wl = load_whitelist()
-    wl.discard(_normalize(plate))
-    save_whitelist(wl)
-    return wl
+    database.remove_plate(_normalize(plate))
+    return load_whitelist()
 
 
 def should_allow_plate(plate: str, whitelist: set[str] | None = None) -> bool:

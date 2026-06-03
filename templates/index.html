@@ -79,6 +79,32 @@
       <ul id="whitelist" class="list"></ul>
     </section>
 
+    <!-- ── Detection History ── -->
+    <section class="card">
+      <div class="card-header" style="justify-content: space-between; display: flex; align-items: center; width: 100%;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span class="card-icon">🚗</span>
+          <h2>Detection History</h2>
+        </div>
+        <button id="clearLogsBtn" class="btn danger" style="padding: 7px 12px; font-size: 0.85rem;">🗑 Clear Logs</button>
+      </div>
+      <div class="table-container" style="overflow-x: auto; margin-top: 12px;">
+        <table class="log-table">
+          <thead>
+            <tr>
+              <th>Plate</th>
+              <th>Time</th>
+              <th>Status</th>
+              <th style="text-align: right;">Confidence</th>
+            </tr>
+          </thead>
+          <tbody id="logsList">
+            <!-- Dynamic logs injected here -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
   </main>
 
   <script src="{{ url_for('static', filename='app.js') }}"></script>
