@@ -7,9 +7,9 @@
 <!-- if you're reading this, you're a nerd :D -->
 ## 📋 ภาพรวม / Overview
 
-ระบบนี้ใช้ **EasyOCR** + **YOLO** เพื่ออ่านทะเบียนรถจากกล้อง แล้วเปรียบเทียบกับ whitelist — ถ้าตรง จะส่งคำสั่งไปยัง **ESP8266** ผ่าน Serial เพื่อเปิดไม้กั้น พร้อมแจ้งเตือนผ่าน **LINE Messaging API**
+ระบบนี้ใช้ **EasyOCR** + **YOLO** เพื่ออ่านทะเบียนรถจากกล้อง แล้วเปรียบเทียบกับ whitelist ในฐานข้อมูล SQLite — ถ้าตรง จะส่งคำสั่งไปยัง **ESP8266** ผ่าน Serial เพื่อเปิดไม้กั้น พร้อมแสดงผลสถานะบนหน้าจอ OLED และแจ้งเตือนผ่าน **LINE Messaging API**
 
-This system uses **EasyOCR** + **YOLO** to read license plates from a camera, compares them against a whitelist, then sends a command to an **ESP8266** via Serial to open the barrier gate, with **LINE Messaging API** notifications.
+This system uses **EasyOCR** + **YOLO** to read license plates from a camera, compares them against a SQLite whitelist database, then sends a command to an **ESP8266** via Serial to open the barrier gate, displaying status on an OLED screen, with **LINE Messaging API** notifications.
 
 ---
 
@@ -18,11 +18,11 @@ This system uses **EasyOCR** + **YOLO** to read license plates from a camera, co
 - อ่านทะเบียนรถแบบ Real-time ผ่านกล้อง
 - ตรวจจับป้ายทะเบียนด้วย YOLO11n
 - OCR ด้วย EasyOCR (รองรับภาษาไทย + อังกฤษ)
-- ระบบ Whitelist ทะเบียนที่อนุญาต
-- ควบคุม ESP8266 ผ่าน Serial (servo motor)
-- แจ้งเตือน LINE ทุกครั้งที่มีรถเข้า-ออก
-- Web UI สำหรับดู log และจัดการ whitelist
-- บันทึก log ทะเบียนทุกคันพร้อม timestamp
+- ระบบ Whitelist จัดเก็บในฐานข้อมูล SQLite
+- ควบคุม ESP8266 ผ่าน Serial (พร้อมควบคุม Servo Motor และแสดงผลบนหน้าจอ OLED)
+- แจ้งเตือนผ่าน LINE ทุกครั้งที่ป้ายได้รับอนุญาตผ่านด่าน
+- Web UI Dashboard สำหรับจัดการ whitelist (เพิ่ม/ลบ) และดูประวัติการสแกน (Logs)
+- บันทึกประวัติการตรวจจับทะเบียนพร้อมความมั่นใจ (Confidence Score) และเวลาอัตโนมัติ
 
 ---
 
@@ -34,6 +34,7 @@ This system uses **EasyOCR** + **YOLO** to read license plates from a camera, co
 | OCR | EasyOCR |
 | Backend | Python |
 | Web UI | Flask |
+| Database | SQLite |
 | Microcontroller | ESP8266 (Arduino) |
 | Notification | LINE Messaging API |
 | Serial Comm | pyserial |
@@ -46,15 +47,16 @@ This system uses **EasyOCR** + **YOLO** to read license plates from a camera, co
 ocr-project-th/
 ├── main.py              # Main loop — camera + OCR + serial
 ├── app.py               # Flask web UI
+├── database.py          # SQLite database connection & migration
 ├── plate_utils.py       # OCR & plate processing logic
-├── plate_whitelist.py   # Whitelist management
+├── plate_whitelist.py   # Whitelist matching via SQLite
 ├── esp_serial.py        # ESP8266 serial communication
 ├── line_notify.py       # LINE Messaging API
-├── api_keys.py          # API keys (gitignored)
+├── app_secrets.py       # API credentials (gitignored)
+├── ocr_project.db       # SQLite database (gitignored, auto-created)
 ├── requirements.txt     # Python dependencies
-├── static/              # Web UI assets
-├── templates/           # Flask HTML templates
-└── plate_whitelist.txt  # Whitelist ทะเบียน (gitignored)
+├── static/              # Web UI assets (HTML dashboard, JS & CSS)
+└── templates/           # Flask HTML templates (index.html)
 ```
 
 ---
@@ -74,17 +76,15 @@ python -m venv .venv
 # 3. ติดตั้ง dependencies
 pip install -r requirements.txt
 
-# 4. ตั้งค่า API keys
-# สร้างไฟล์ api_keys.py แล้วใส่:
-# LINE_CHANNEL_ACCESS_TOKEN = "your_token"
-# LINE_PUSH_TO = "your_user_id"
+# 4. ตั้งค่า API credentials
+# สร้างไฟล์ app_secrets.py แล้วใส่ข้อมูลด้านล่าง
 ```
 
 ---
 
 ## การตั้งค่า / Configuration
 
-สร้างไฟล์ `api_keys.py` (ไม่ถูก commit ขึ้น git):
+สร้างไฟล์ `app_secrets.py` (ไม่ถูก commit ขึ้น git):
 
 ```python
 LINE_CHANNEL_ACCESS_TOKEN = "your_line_token_here"
