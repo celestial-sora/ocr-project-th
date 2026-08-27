@@ -105,14 +105,36 @@ export ESP_PORT=/dev/ttyUSB0
 ## การใช้งาน / Usage
 
 ```bash
-# รัน main system
+# รัน main system (กล้อง + OCR)
 python main.py
 
-# รัน web UI (แยก terminal)
+# รัน web UI โดยตรง (แยก terminal)
 python app.py
 ```
 
 Web UI จะเปิดที่ `http://localhost:5000`
+
+### รันด้วยสคริปต์ / Run scripts
+
+บน Linux/Fedora/macOS:
+
+```bash
+./run.sh
+```
+
+บน Windows ให้ดับเบิลคลิก `run.bat` หรือรันใน Command Prompt:
+
+```bat
+run.bat
+```
+
+สคริปต์จะใช้ Python จาก `.venv` และเปิด Flask Web UI ที่ `http://127.0.0.1:5000` หากยังไม่มี `.venv` ให้สร้างและติดตั้ง dependencies ก่อน:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+```
 
 ---
 
