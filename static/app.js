@@ -20,6 +20,77 @@ function setStatus(running) {
   }
 }
 
+let currentEspState = null;
+let countdownTimer = null;
+
+function updateEspUI() {
+  const badge = document.getElementById("espStatusBadge");
+  const detail = document.getElementById("espDetail");
+  if (!badge || !detail) return;
+
+  if (!currentEspState || !currentEspState.connected) {
+    badge.textContent = "● ESP8266: Disconnected";
+    badge.className = "badge badge-stopped";
+    detail.textContent = "ไม่พบบอร์ด ESP8266 หรือยังไม่ได้เชื่อมต่อ USB";
+    return;
+  }
+
+  badge.textContent = `● ESP8266: Connected (${currentEspState.port})`;
+  badge.className = "badge badge-running";
+
+  let gateText = "";
+  if (currentEspState.gate === "OPEN") {
+    const sec = Math.max(0, Math.round(currentEspState.remaining_sec));
+    gateText = `เปิด (${currentEspState.angle}°) — Auto-close ใน <strong style="color:var(--primary);">${sec}s</strong>`;
+  } else {
+    gateText = `ปิด (0°)`;
+  }
+
+  detail.innerHTML = `พอร์ต: <code>${currentEspState.port}</code> | สถานะไม้กั้น: <span>${gateText}</span>`;
+}
+
+let disconnectCount = 0;
+
+function setEspStatus(esp) {
+  if (esp && esp.connected) {
+    disconnectCount = 0;
+    currentEspState = { ...esp };
+  } else {
+    disconnectCount += 1;
+    // Debounce: ต้องตรวจว่าหลุดต่อเนื่องเกิน 2 ครั้ง (3 วินาที) ถึงจะถือว่า Disconnected จริง
+    if (disconnectCount >= 2) {
+      currentEspState = null;
+    }
+  }
+  updateEspUI();
+
+  // จัดการตัวนับถอยหลัง Client-side แบบ Real-time
+  if (currentEspState && currentEspState.gate === "OPEN" && currentEspState.remaining_sec > 0) {
+    if (!countdownTimer) {
+      countdownTimer = setInterval(() => {
+        if (currentEspState && currentEspState.gate === "OPEN" && currentEspState.remaining_sec > 0) {
+          currentEspState.remaining_sec -= 1;
+          if (currentEspState.remaining_sec <= 0) {
+            currentEspState.gate = "CLOSED";
+            currentEspState.angle = 0;
+            clearInterval(countdownTimer);
+            countdownTimer = null;
+          }
+          updateEspUI();
+        } else {
+          clearInterval(countdownTimer);
+          countdownTimer = null;
+        }
+      }, 1000);
+    }
+  } else {
+    if (countdownTimer) {
+      clearInterval(countdownTimer);
+      countdownTimer = null;
+    }
+  }
+}
+
 /* ── Fix #8: Button loading state helpers ── */
 function setBtnLoading(btn, loading) {
   if (loading) {
@@ -169,12 +240,13 @@ async function refreshAll() {
     api("/api/logs"),
   ]);
   setStatus(status.running);
+  setEspStatus(status.esp);
   renderList(wl.items);
   renderLogs(logsData.logs);
   await loadLineKeys();
 }
 
-/* ── Fix #9: Auto-refresh status and logs every 5 seconds ── */
+/* ── Auto-refresh status and logs every 1.5 seconds ── */
 setInterval(async () => {
   try {
     const [status, logsData] = await Promise.all([
@@ -182,9 +254,10 @@ setInterval(async () => {
       api("/api/logs"),
     ]);
     setStatus(status.running);
+    setEspStatus(status.esp);
     renderLogs(logsData.logs);
   } catch (_) { /* silent — network might be down momentarily */ }
-}, 5000);
+}, 1500);
 
 /* ── Button wiring ── */
 document.getElementById("runBtn").onclick = async () => {

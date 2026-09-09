@@ -6,7 +6,7 @@
   <title>Whitelist + LINE Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
@@ -32,7 +32,11 @@
         <button id="stopBtn" class="btn danger">■ Stop main.py</button>
         <button id="testLineBtn" class="btn accent">✉ Test LINE</button>
       </div>
-      <div id="statusBadge" class="badge badge-stopped">● Checking…</div>
+      <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <div id="statusBadge" class="badge badge-stopped">● Checking Process…</div>
+        <div id="espStatusBadge" class="badge badge-stopped">● Checking ESP8266…</div>
+      </div>
+      <div id="espDetail" class="muted small" style="margin-top: 8px; margin-bottom: 0;"></div>
     </section>
 
     <!-- ── LINE Credentials ── -->

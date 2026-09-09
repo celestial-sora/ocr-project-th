@@ -11,6 +11,7 @@ import re
 import line_notify
 import plate_whitelist
 import database
+import esp_serial
 
 BASE_DIR = Path(__file__).resolve().parent
 MAIN_PY = BASE_DIR / "main.py"
@@ -39,7 +40,13 @@ def index():
 
 @app.get("/api/status")
 def status():
-    return jsonify({"running": _is_running()})
+    # ตรวจสอบสถานะ process และสถานะบอร์ด ESP8266
+    is_run = _is_running()
+    esp_info = esp_serial.get_device_status()
+    return jsonify({
+        "running": is_run,
+        "esp": esp_info,
+    })
 
 
 @app.post("/api/run-main")
