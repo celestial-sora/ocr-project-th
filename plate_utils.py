@@ -34,7 +34,7 @@ def _filter_plate_text(raw: str) -> str | None:
     s = raw.strip()
     if not s:
         return None
-    m = THAI_PLATE_PATTERN.search(s.replace(" ", " ").replace("  ", " "))
+    m = THAI_PLATE_PATTERN.search(s)
     if m:
         return m.group(0).strip()
     # ลองตัดช่องว่างแปลก ๆ
@@ -43,6 +43,20 @@ def _filter_plate_text(raw: str) -> str | None:
     if m2:
         return m2.group(0).strip()
     return None
+
+
+def _plate_characters(raw: str) -> str:
+    """เก็บเฉพาะอักษรไทยและตัวเลขที่เป็นไปได้ในเลขทะเบียน"""
+    return "".join(ch for ch in raw.upper() if "ก" <= ch <= "ฮ" or ch.isdigit())
+
+
+def _bbox_center_x(bbox: Any) -> float:
+    """หาค่า x กึ่งกลางของ OCR bounding box เพื่อเรียงข้อความจากซ้ายไปขวา"""
+    try:
+        xs = [float(point[0]) for point in bbox]
+        return sum(xs) / len(xs) if xs else 0.0
+    except (TypeError, ValueError, IndexError):
+        return 0.0
 
 
 def detect_plate_roi(frame: np.ndarray) -> tuple[int, int, int, int] | None:
@@ -96,7 +110,11 @@ def detect_plate_roi(frame: np.ndarray) -> tuple[int, int, int, int] | None:
 def read_plate_text(reader: Any, plate_bgr: np.ndarray) -> tuple[str, float] | None:
     """
     รัน EasyOCR เฉพาะบริเวณ crop ของป้าย
-    คืน (ข้อความที่ผ่าน regex, confidence สูงสุดของ segment ที่ใช้) หรือ None
+    คืน (ข้อความที่ผ่าน regex, confidence ของข้อความที่ประกอบแล้ว) หรือ None
+
+    OCR สามารถแบ่งทะเบียนออกเป็นหลาย bounding boxes ได้ เช่น "กข" และ "1234".
+    จึงต้องประกอบ candidate จากทุก box ก่อนใช้ confidence threshold กับผลลัพธ์สุดท้าย
+    ไม่ควรทิ้ง component เพียงเพราะ confidence ของ component นั้นต่ำกว่า threshold.
     """
     if plate_bgr is None or plate_bgr.size == 0:
         return None
@@ -106,34 +124,47 @@ def read_plate_text(reader: Any, plate_bgr: np.ndarray) -> tuple[str, float] | N
 
     best_text: str | None = None
     best_conf = 0.0
-    merged_parts: list[str] = []
-    merged_conf_sum = 0.0
-    merged_conf_n = 0
 
+    # ตรวจแต่ละ box ก่อน เผื่อ EasyOCR คืนทะเบียนครบในกล่องเดียว
     for item in results:
-        # easyocr: (bbox, text, conf) หรือบางเวอร์ชันมีรูปแบบต่างกันเล็กน้อย
         if len(item) < 3:
             continue
         _bbox, text, conf = item[0], item[1], float(item[2])
-        if conf < OCR_CONFIDENCE_THRESHOLD:
-            continue
-        merged_parts.append(text.strip())
-        merged_conf_sum += conf
-        merged_conf_n += 1
         cleaned = _filter_plate_text(text)
-        if cleaned and conf > best_conf:
-            best_conf = conf
+        if cleaned and conf >= OCR_CONFIDENCE_THRESHOLD and conf > best_conf:
             best_text = cleaned
+            best_conf = conf
 
-    # รวมข้อความหลายกล่อง (เช่น พยัญชนะ / ตัวเลข แยกกล่อง) แล้วลองจับรูปแบบอีกครั้ง
-    if merged_parts and merged_conf_n:
-        combined = " ".join(merged_parts)
+    # สำคัญ: เก็บทุก box ที่มีอักษรไทย/ตัวเลขก่อน ไม่กรองด้วย confidence รายกล่อง
+    # เพราะทะเบียนเดียวกันอาจถูก EasyOCR แยกเป็นหลายกล่องและมี confidence ไม่เท่ากัน
+    candidates: list[tuple[float, str]] = []
+    for item in results:
+        if len(item) < 3:
+            continue
+        bbox, text, conf = item[0], str(item[1]), float(item[2])
+        chars = _plate_characters(text)
+        if chars:
+            candidates.append((_bbox_center_x(bbox), chars))
+
+    candidates.sort(key=lambda candidate: candidate[0])
+    if candidates:
+        combined = "".join(text for _, text in candidates)
         merged_clean = _filter_plate_text(combined)
-        avg_conf = merged_conf_sum / merged_conf_n
-        if merged_clean and avg_conf >= OCR_CONFIDENCE_THRESHOLD:
-            if best_text is None or len(merged_clean) >= len(best_text):
+
+        if merged_clean:
+            # ใช้ค่าเฉลี่ย confidence ของทุก component ที่นำมาประกอบ
+            # และให้ threshold ตัดสินหลังจากประกอบทะเบียนแล้ว
+            component_confidences = [
+                float(item[2])
+                for item in results
+                if len(item) >= 3 and _plate_characters(str(item[1]))
+            ]
+            avg_conf = sum(component_confidences) / len(component_confidences)
+            if avg_conf >= OCR_CONFIDENCE_THRESHOLD and (
+                best_text is None or len(merged_clean) >= len(best_text)
+            ):
                 best_text = merged_clean
-                best_conf = max(best_conf, avg_conf)
+                best_conf = avg_conf
 
     if best_text is None:
         return None
