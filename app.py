@@ -129,7 +129,7 @@ def test_servo():
         return jsonify({"ok": False, "message": "ESP8266 is not connected"}), 400
     ok = esp_serial.send_plate_status(ser, "TEST SERVO", True)
     if ok:
-        return jsonify({"ok": True, "message": "Servo test sent (gate open, auto-close ~24s)"})
+        return jsonify({"ok": True, "message": "Servo test sent (gate open, auto-close ~18s)"})
     return jsonify({"ok": False, "message": "Failed to send servo command"}), 500
 
 

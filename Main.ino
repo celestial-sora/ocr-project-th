@@ -15,7 +15,7 @@ u8g2(U8G2_R0, 12, 14, U8X8_PIN_NONE);
 
 Servo gateServo;
 
-const unsigned long AUTO_CLOSE_DELAY_MS = 24000; // 24 วินาที
+const unsigned long AUTO_CLOSE_DELAY_MS = 18000; // 18 วินาที
 unsigned long openTimestamp = 0;
 bool isGateOpen = false;
 int lastRemainingSec = -1;
@@ -147,7 +147,7 @@ void loop() {
     if (cmd == "OPEN" || cmd == "180") {
       isGateOpen = true;
       openTimestamp = millis();
-      showText("GATE: OPEN", "Angle: 180 (24s)");
+      showText("GATE: OPEN", "Angle: 180 (18s)");
       smoothMoveTo(180);
     }
     else if (cmd == "CLOSE" || cmd == "0") {
