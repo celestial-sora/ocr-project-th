@@ -203,12 +203,21 @@ async function loadLogs() {
 }
 
 /* ── LINE credentials helpers ── */
-function showLineMsg(text, isOk) {
-  const p = document.getElementById("lineMsg");
+function showTempMsg(elId, text, isOk) {
+  const p = document.getElementById(elId);
+  if (!p) return;
   p.textContent = text;
   p.className = "line-msg " + (isOk ? "ok" : "err");
   clearTimeout(p._timer);
   p._timer = setTimeout(() => { p.textContent = ""; p.className = "line-msg"; }, 5000);
+}
+
+function showLineMsg(text, isOk) {
+  showTempMsg("lineMsg", text, isOk);
+}
+
+function showProcessMsg(text, isOk) {
+  showTempMsg("processMsg", text, isOk);
 }
 
 function toggleVisibility(inputId, btn) {
@@ -288,6 +297,18 @@ document.getElementById("testLineBtn").onclick = async () => {
     showLineMsg("✓ " + data.message, true);
   } catch (err) {
     showLineMsg("✗ " + err.message, false);
+  }
+  setBtnLoading(btn, false);
+};
+
+document.getElementById("testServoBtn").onclick = async () => {
+  const btn = document.getElementById("testServoBtn");
+  setBtnLoading(btn, true);
+  try {
+    const data = await api("/api/test-servo", { method: "POST" });
+    showProcessMsg("✓ " + data.message, true);
+  } catch (err) {
+    showProcessMsg("✗ " + err.message, false);
   }
   setBtnLoading(btn, false);
 };

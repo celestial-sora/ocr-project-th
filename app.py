@@ -117,6 +117,22 @@ def clear_logs():
     return jsonify({"ok": True, "message": "Cleared all logs"})
 
 
+@app.post("/api/test-servo")
+def test_servo():
+    if _is_running():
+        return jsonify({
+            "ok": False,
+            "message": "Stop main.py first — it is using the ESP serial port",
+        }), 400
+    ser = esp_serial.get_connection()
+    if ser is None:
+        return jsonify({"ok": False, "message": "ESP8266 is not connected"}), 400
+    ok = esp_serial.send_plate_status(ser, "TEST SERVO", True)
+    if ok:
+        return jsonify({"ok": True, "message": "Servo test sent (gate open, auto-close ~24s)"})
+    return jsonify({"ok": False, "message": "Failed to send servo command"}), 500
+
+
 @app.post("/api/test-line")
 def test_line():
     if not line_notify.messaging_push_ready():
